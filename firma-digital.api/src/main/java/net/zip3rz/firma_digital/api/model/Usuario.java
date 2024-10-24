@@ -1,12 +1,16 @@
 package net.zip3rz.firma_digital.api.model;
 
+import java.security.KeyPair;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
 import lombok.Data;
 
+/**
+ * Modelo de usuario.
+ */
 @Entity
 @Data
 public class Usuario {
@@ -18,8 +22,7 @@ public class Usuario {
 	private String nombre;
 	
 	private String contrasena;
-	
-	@OneToOne
-	private ParClaves parClaves;
+
+	private KeyPair parClaves;
 
 }

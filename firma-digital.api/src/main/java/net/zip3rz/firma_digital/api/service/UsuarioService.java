@@ -1,14 +1,20 @@
 package net.zip3rz.firma_digital.api.service;
 
-import net.zip3rz.firma_digital.api.model.ParClaves;
 import net.zip3rz.firma_digital.api.model.Usuario;
 
+/**
+ * Servicio para gestionar usuarios.
+ */
 public interface UsuarioService {
 
-	Usuario getUsuario(String nombre);
+	Usuario getUsuarioById(Long id);
 
-	ParClaves generarParClaves(String nombre);
+	Usuario getUsuarioByNombre(String nombre);
 
-	Usuario registrarUsuario(String nombre, String contrasena);
+	void generarParClaves(String nombre);
+
+	String registrarUsuario(String nombre, String contrasena);
+
+	void autenticarUsuario(String username, String password);
 
 }

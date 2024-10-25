@@ -1,8 +1,13 @@
 package net.zip3rz.firma_digital.api.service.impl;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -65,19 +70,22 @@ public class UsuarioServiceImpl implements UsuarioService {
 	 */
 	@Override
 	public void generarParClaves(String nombre) {
-        Usuario usuario = getUsuarioByNombre(nombre);
+		Usuario usuario = getUsuarioByNombre(nombre);
 
         try {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance(FirmaDigitalService.ALGORITMO_CLAVE_PUBLICA);
             keyGen.initialize(FirmaDigitalService.LONGITUD_CLAVE);
             KeyPair parClaves = keyGen.generateKeyPair();
 
-            usuario.setParClaves(parClaves);
+            usuario.setClavePublica(parClaves.getPublic().getEncoded());
+
+            String rutaArchivo = RUTA_PRIVATE_KEY + nombre + "_private.key";
+            guardarClavePrivada(parClaves.getPrivate(), rutaArchivo);
 
             usuarioRepository.save(usuario);
 
         } catch (NoSuchAlgorithmException e) {
-            throw new GeneracionClaveException("Error al generar el par de claves para el usuario: " + nombre, e);
+            throw new RuntimeException("Error al generar el par de claves", e);
         }
 	}
 
@@ -106,13 +114,13 @@ public class UsuarioServiceImpl implements UsuarioService {
 
 	/**
 	 * Autentica un usuario.
-	 * @param username nombre del usuario.
-	 * @param password contraseña del usuario.
+	 * @param nombre nombre del usuario.
+	 * @param contrasena contraseña del usuario.
 	 * @throws RuntimeException si la autenticación falla.
 	 */
 	@Override
-    public void autenticarUsuario(String username, String password) {
-        Authentication authentication = new UsernamePasswordAuthenticationToken(username, password);
+    public void autenticarUsuario(String nombre, String contrasena) {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(nombre, contrasena);
         try {
             authenticationManager.authenticate(authentication);
         } catch (BadCredentialsException e) {
@@ -120,4 +128,20 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
     }
 
+    /**
+     * Guarda la clave privada de un usuario en el sistema de archivos.
+     * @param clavePrivada clave privada a guardar.
+     * @param rutaArchivo ruta del archivo donde se guardará la clave.
+     * @param nombreUsuario nombre del usuario.
+     */
+	private void guardarClavePrivada(PrivateKey clavePrivada, String rutaArchivo) {
+	    try {
+	    	Path path = Paths.get(rutaArchivo);
+	        Files.createDirectories(path.getParent());
+	        Files.write(path, clavePrivada.getEncoded());
+	    } catch (IOException e) {
+	        throw new RuntimeException("Error al guardar la clave privada", e);
+	    }
+	}
+	
 }

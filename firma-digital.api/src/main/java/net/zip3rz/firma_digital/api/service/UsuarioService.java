@@ -7,6 +7,8 @@ import net.zip3rz.firma_digital.api.model.Usuario;
  */
 public interface UsuarioService {
 
+	static final String RUTA_PRIVATE_KEY = "/secure/privateKeys/";
+	
 	Usuario getUsuarioById(Long id);
 
 	Usuario getUsuarioByNombre(String nombre);

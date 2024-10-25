@@ -1,7 +1,5 @@
 package net.zip3rz.firma_digital.api.model;
 
-import java.security.KeyPair;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -23,6 +21,6 @@ public class Usuario {
 	
 	private String contrasena;
 
-	private KeyPair parClaves;
+	byte[] clavePublica;
 
 }

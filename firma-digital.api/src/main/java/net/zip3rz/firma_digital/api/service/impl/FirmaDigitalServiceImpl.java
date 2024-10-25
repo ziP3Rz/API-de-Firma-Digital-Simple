@@ -1,18 +1,21 @@
 package net.zip3rz.firma_digital.api.service.impl;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import net.zip3rz.firma_digital.api.exception.ClavePublicaInexistenteException;
 import net.zip3rz.firma_digital.api.exception.FirmaDigitalException;
 import net.zip3rz.firma_digital.api.exception.UsuarioNoEncontradoException;
 import net.zip3rz.firma_digital.api.model.Usuario;
@@ -37,34 +40,23 @@ public class FirmaDigitalServiceImpl implements FirmaDigitalService {
      */
     @Override
     public String firmarDocumento(String nombreUsuario, String documentoBase64) {
-        try {
-            Usuario usuario = usuarioService.getUsuarioByNombre(nombreUsuario);
-            if (usuario == null) {
-                throw new UsuarioNoEncontradoException("Usuario no encontrado: " + nombreUsuario);
-            }
+    	try {
+            byte[] documento = Base64.getDecoder().decode(documentoBase64);
 
-            byte[] documentoBytes = Base64.getDecoder().decode(documentoBase64);
+            String rutaArchivo = UsuarioService.RUTA_PRIVATE_KEY + nombreUsuario + "_private.key";
+            PrivateKey privateKey = cargarClavePrivada(rutaArchivo);
 
-            PrivateKey clavePrivada = KeyFactory.getInstance(ALGORITMO_CLAVE_PUBLICA)
-                    .generatePrivate(new PKCS8EncodedKeySpec(usuario.getParClaves().getPrivate().getEncoded()));
+            Signature signature = Signature.getInstance(ALGORITMO_FIRMA);
+            signature.initSign(privateKey);
+            signature.update(documento);
 
-            Signature firma = Signature.getInstance(ALGORITMO_FIRMA);
-            firma.initSign(clavePrivada);
-            firma.update(documentoBytes);
-
-            byte[] firmaBytes = firma.sign();
+            byte[] firmaBytes = signature.sign();
+            
             return Base64.getEncoder().encodeToString(firmaBytes);
-
-        } catch (NoSuchAlgorithmException e) {
-            throw new FirmaDigitalException("Algoritmo de firma no encontrado", e);
-        } catch (InvalidKeySpecException e) {
-            throw new FirmaDigitalException("Especificación de clave inválida", e);
-        } catch (SignatureException e) {
-            throw new FirmaDigitalException("Error al firmar el documento", e);
-        } catch (IllegalArgumentException e) {
-            throw new FirmaDigitalException("Documento en Base64 inválido", e);
+            
         } catch (Exception e) {
-            throw new FirmaDigitalException("Error inesperado al firmar el documento", e);
+        	e.printStackTrace();
+            throw new FirmaDigitalException("Error al firmar el documento", e);
         }
     }
 
@@ -79,25 +71,52 @@ public class FirmaDigitalServiceImpl implements FirmaDigitalService {
      */
     @Override
     public boolean verificarFirma(Long usuarioId, String documentoBase64, String firmaBase64) {
-        try {
+    	System.out.println("Documento original (Base64): " + documentoBase64);
+    	System.out.println("Firma generada (Base64): " + firmaBase64);
+    	try {
             Usuario usuario = usuarioService.getUsuarioById(usuarioId);
-            PublicKey clavePublica = usuario.getParClaves().getPublic();
+            byte[] documento = Base64.getDecoder().decode(documentoBase64);
+            byte[] firma = Base64.getDecoder().decode(firmaBase64);
 
-            byte[] documentoBytes = Base64.getDecoder().decode(documentoBase64);
-            byte[] firmaBytes = Base64.getDecoder().decode(firmaBase64);
+            byte[] clavePublicaBytes = usuario.getClavePublica();
+			if (clavePublicaBytes == null) {
+				throw new ClavePublicaInexistenteException("Usuario sin clave pública");
+			}
+			PublicKey clavePublica = KeyFactory.getInstance(ALGORITMO_CLAVE_PUBLICA)
+	            .generatePublic(new X509EncodedKeySpec(clavePublicaBytes));
 
-            Signature firma = Signature.getInstance(ALGORITMO_FIRMA);
-            firma.initVerify(clavePublica);
-            firma.update(documentoBytes);
+	        Signature signature = Signature.getInstance(ALGORITMO_FIRMA);
+	        signature.initVerify(clavePublica);
+	        signature.update(documento);
 
-            return firma.verify(firmaBytes);
+	        boolean resultadoVerificacion = signature.verify(firma);
+	        System.out.println("Firma: " + Base64.getEncoder().encodeToString(firma));
+	        System.out.println("Resultado de verificación: " + resultadoVerificacion);
 
-        } catch (UsuarioNoEncontradoException e) {
-            throw new UsuarioNoEncontradoException("Usuario " + usuarioId + " no encontrado");
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new FirmaDigitalException("Error al verificar la firma del documento", e);
-        }
+	        return resultadoVerificacion;
+
+
+		} catch (UsuarioNoEncontradoException e) {
+			throw new UsuarioNoEncontradoException("Usuario no encontrado");
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new FirmaDigitalException("Error al verificar la firma", e);
+		}
+    }
+    
+    /**
+     * Carga la clave privada de un archivo.
+     * @param rutaArchivo ruta del archivo que contiene la clave privada.
+     * @throws Exception si ocurre un error al cargar la clave privada.
+     * @return clave privada.
+     */
+    private PrivateKey cargarClavePrivada(String rutaArchivo) throws Exception {
+        Path path = Paths.get(rutaArchivo);
+        byte[] clavePrivadaBytes = Files.readAllBytes(path);
+
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clavePrivadaBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance(ALGORITMO_CLAVE_PUBLICA);
+        return keyFactory.generatePrivate(keySpec);
     }
 
 }

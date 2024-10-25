@@ -40,7 +40,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
             	.requestMatchers("/usuarios/registrar", "/usuarios/autenticar", "firma-digital/verificar-documento").permitAll()
-                .requestMatchers("/usuarios/**", "firma-digital/generar-claves").authenticated()
+                .requestMatchers("usuarios/generar-claves", "firma-digital/firmar").authenticated()
                 .anyRequest().permitAll()
             )
             .userDetailsService(userDetailsService)

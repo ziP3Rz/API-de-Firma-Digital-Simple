@@ -1,0 +1,46 @@
+1. Creación del repositorio Git:
+
+Se crea un repositorio Git con un .gitginore dedicado para Maven.
+
+2. Escoger versión de Java y Spring.
+
+Requisitos:
+	- Compatibilidad con librería Java Cryptography Arquitechture (JCA): generación de claves y fimra/verificación de documentos.
+		* Parece que se han incluido parches de seguridad en la versión 17 del JDK con respecto a esta librería, por lo que usaremos el JDK 17 (LTS):
+
+security-libs/javax.crypto
+➜ KEM.getInstance() debe comprobar si un proveedor de seguridad de terceros está firmado (JDK-8322971) 
+Al instanciar la implementación (clase) de un proveedor de seguridad de terceros de un algoritmo KEM, el framework determinará la base de código del proveedor (archivo JAR) y verificará su firma. De este modo, JCA autentica al proveedor y garantiza que sólo los proveedores firmados por una entidad de confianza puedan conectarse a JCA. Esto es coherente con otras clases de servicio JCE, como Cipher, Mac, KeyAgreement, y otros.
+
+Traducción realizada con la versión gratuita del traductor DeepL.com
+
+		* Por tanto, la versión de SpringBoot será la 3.3.4 (LTS más reciente).
+
+3. Spring Initializr para crear el proyecto base:
+	- Maven, Java, empaquetado Jar y vesión 17:
+	- Dependencias Maven:
+		* Spring Web
+		* Lombok
+		* Spring Data JPA
+		* PostgreSQL Driver
+
+4. Creación del docker-compose.yml para la inicialización de la BD:
+	- image: postgres:14
+	- contraseña manejada con secretos
+	- puerto 5433 para evitar conflictos con instancias locales de PostreSQL
+
+5. Diseño del modelo según dominio establecido:
+	- Usuario con nombre, contraseña y par de claves pública y privada (java.security.KeyPair).
+	- Reositorio para este usuario (org.springframework.data.jpa.repository.JpaRepository)
+	- Controladores y servicios para Usuario y FirmaDigital
+	- Excepciones personalizadas.
+
+6. Configuración de seguridad:
+	- Admitimos política CORS para acceder a los endpoints de la API.
+	- Protegemos los métodos con Basic Auth HTTP:
+		* los endpoints "/usuarios/registrar", "/usuarios/autenticar", "firma-digital/verificar-documento" serán públicos (cualquier usuario en el lado del cliente debería poder intentar registrar un nuevo usuario, así como autenticarse y verificar un documento firmado).
+		* el resto de endpoints de la API "/{nombre}/generar-claves" y "/firmar" necesitarán Basic Auth (usaurio registrado y su contraseña) para poder ser llamados desde el lado del cliente.
+
+7. Almacenamiento de la calves:
+	- Clave pública: en la base de datos, no hay problema en que sea comprometida...
+	- Clave privada: utilizamos el sistema de archivos, en este caso del contenedor Docker (o en local del equipo del usuario) para que no sea comprometida, será responsabilidad del usuario. En futuras versiones se debería pedir el archivo donde esta clave se encuentre por parámetro de la petición.
